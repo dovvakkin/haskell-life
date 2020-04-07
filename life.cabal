@@ -1,0 +1,44 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 3df3a8b4cf7d06be939e967778b7afcb201b4d9ddcf733415e8a1e0b134467d3
+
+name:           life
+version:        0.0.0.0
+description:    Please see the README file.
+author:         Evgeny Kozhevnikov & Sofia Kopikova
+maintainer:     Evgeny Kozhevnikov & Sofia Kopikova
+copyright:      2020 Evgeny Kozhevnikov & Sofia Kopikova
+build-type:     Simple
+extra-source-files:
+    readme.md
+
+library
+  exposed-modules:
+      Life
+  other-modules:
+      Paths_life
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , gloss
+  default-language: Haskell2010
+
+executable life
+  main-is: Main.hs
+  other-modules:
+      Paths_life
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , gloss
+    , life
+  default-language: Haskell2010

@@ -1,3 +1,7 @@
+module Life
+    ( start_game
+    ) where
+
 import           Data.Map
 import           Data.Set
 import           Graphics.Gloss
@@ -14,9 +18,8 @@ n_neighbours_to_stay = Data.Set.fromList [2]
 type Cell = (Int, Int)
 type Field = Set Cell
 
-main :: IO ()
-main = do
-    start_game
+start_game :: IO ()
+start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white 7 init_state renderer handler updater
 
 get_coordinate_on_torus :: Cell -> Cell
 get_coordinate_on_torus (cx, cy) = ((cx + field_width) `mod` field_width,
@@ -35,7 +38,7 @@ list_to_count :: [Cell] -> [(Cell, Int)]
 list_to_count ls = Data.Map.toList (Data.Map.fromListWith (+) [(l, 1) | l <- ls])
 
 field_to_counter :: Field -> [(Cell, Int)]
-field_to_counter f = list_to_count $ get_all_neighbours f
+field_to_counter f = list_to_count $get_all_neighbours f
 
 is_born_with_neighbours :: (Cell, Int) -> Bool
 is_born_with_neighbours (_, n) = n `Data.Set.member` n_neighbours_to_born
@@ -61,9 +64,6 @@ createField :: Field
 createField = Data.Set.empty
 
 init_state = GS createField True
-
-start_game :: IO ()
-start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white 7 init_state renderer handler updater
 
 modify_life :: Cell -> Field -> Field
 modify_life c f
@@ -116,4 +116,5 @@ renderer GS { field = field} = applyViewPortToPicture viewPort $ pictures $ cell
 	| otherwise = color white $ rectangleSolid cellSize cellSize
 
 viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen field_size) 0 1
+
 
