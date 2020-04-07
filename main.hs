@@ -1,13 +1,22 @@
-import Data.Map
-import Data.Set
+import           Data.Map
+import           Data.Set
+import           Graphics.Gloss
+import           Graphics.Gloss.Data.ViewPort
+import           Graphics.Gloss.Interface.Pure.Game
 
-field_width = 20 :: Int
-field_height = 20 :: Int
+field_size@(field_width, field_height) = (20, 20) :: (Int, Int)
 
-n_neighbours_to_live = Data.Set.fromList [2, 3] 
+cellSize = 24 :: Float
+
+n_neighbours_to_born = Data.Set.fromList [3]
+n_neighbours_to_stay = Data.Set.fromList [2]
 
 type Cell = (Int, Int)
 type Field = Set Cell
+
+main :: IO ()
+main = do
+    start_game
 
 get_coordinate_on_torus :: Cell -> Cell
 get_coordinate_on_torus (cx, cy) = ((cx + field_width) `mod` field_width,
@@ -28,14 +37,83 @@ list_to_count ls = Data.Map.toList (Data.Map.fromListWith (+) [(l, 1) | l <- ls]
 field_to_counter :: Field -> [(Cell, Int)]
 field_to_counter f = list_to_count $ get_all_neighbours f
 
-is_life_with_neighbours :: (Cell, Int) -> Bool
-is_life_with_neighbours (_, n) = n `Data.Set.member` n_neighbours_to_live
+is_born_with_neighbours :: (Cell, Int) -> Bool
+is_born_with_neighbours (_, n) = n `Data.Set.member` n_neighbours_to_born
 
-counter_to_field :: [(Cell, Int)] -> Field
-counter_to_field l = Data.Set.fromList
+is_stay_with_neighbours :: (Cell, Int) -> Bool
+is_stay_with_neighbours (_, n) = n `Data.Set.member` n_neighbours_to_stay
+
+counter_to_field :: [(Cell, Int)] -> Field -> Field
+counter_to_field l f = Data.Set.fromList
                      $ Prelude.map fst
-		     $ Prelude.filter is_life_with_neighbours l
+		     $ Prelude.filter (\x -> (is_stay_with_neighbours x) && ((fst x) `Data.Set.member` f) ||
+	                                     is_born_with_neighbours x) l
 
 get_new_field :: Field -> Field
-get_new_field f = counter_to_field $ field_to_counter f
+get_new_field f = counter_to_field (field_to_counter f) f
+
+data GameState = GS
+    { field :: Field
+    , pause :: Bool
+    }
+
+createField :: Field
+createField = Data.Set.empty
+
+init_state = GS createField True
+
+start_game :: IO ()
+start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white 7 init_state renderer handler updater
+
+modify_life :: Cell -> Field -> Field
+modify_life c f
+	| c `Data.Set.member` f = Data.Set.delete c f
+ 	| otherwise = Data.Set.insert c f
+
+both :: (a -> b) -> (a, a) -> (b, b)
+both f (a, b) = (f a, f b)
+
+windowSize = both (* (round cellSize)) field_size
+
+updater time gs@GS
+    { field = field
+    , pause = False
+    } = gs
+    { field = new_field
+    , pause = False
+    } where
+    new_field = get_new_field field
+
+updater _ gs = gs
+
+handler (EventKey (MouseButton LeftButton) Down _ mouse) gs@GS
+    { field = field
+    , pause = True
+    } = gs
+    { field = newField
+    , pause = True
+    } where
+    newField = modify_life (screenToCell mouse) field
+
+handler (EventKey (Char 'p') Down _ _) gs@GS
+    { field = field
+    , pause = pause
+    } = gs
+    { field = field
+    , pause = not pause
+    }
+
+handler _ gs = gs
+
+screenToCell = both (round . (/ cellSize)) . invertViewPort viewPort
+cellToScreen = both ((* cellSize) . fromIntegral)
+
+renderer GS { field = field} = applyViewPortToPicture viewPort $ pictures $ cells ++ grid where
+    grid = [uncurry translate (cellToScreen (x, y)) $ color black $ rectangleWire cellSize cellSize | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
+    cells = [uncurry translate (cellToScreen (x, y)) $ draw_cell x y | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
+    draw_cell x y
+        | (x, y) `Data.Set.member` field = color green $ rectangleSolid cellSize cellSize
+	| otherwise = color white $ rectangleSolid cellSize cellSize
+
+viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen field_size) 0 1
 
