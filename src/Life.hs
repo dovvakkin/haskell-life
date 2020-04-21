@@ -2,11 +2,15 @@ module Life
     ( start_game
     ) where
 
+
 import           Data.Map
 import           Data.Set
 import           Graphics.Gloss
 import           Graphics.Gloss.Data.ViewPort
-import           Graphics.Gloss.Interface.Pure.Game
+import           Graphics.Gloss.Interface.IO.Game
+--import           Graphics.Gloss.Interface.Pure.Game
+
+import           System.IO
 
 field_size@(field_width, field_height) = (20, 20) :: (Int, Int)
 
@@ -21,7 +25,7 @@ type Cell = (Int, Int)
 type Field = Set Cell
 
 start_game :: IO ()
-start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white default_fps init_state renderer handler updater
+start_game = playIO (InWindow "Hsweeper" windowSize (240, 160)) white default_fps init_state renderer handler updater
 
 get_coordinate_on_torus :: Cell -> Cell
 get_coordinate_on_torus (cx, cy) = ((cx + field_width) `mod` field_width,
@@ -107,31 +111,33 @@ decrease_speed :: Int -> Int
 decrease_speed allowed_frame | allowed_frame < default_fps = allowed_frame + 1
                           | otherwise = allowed_frame
 
+updater :: Float -> GameState -> IO GameState
 updater time gs@GS
     { field = field
     , pause = False
     , allowed_frame = allowed_frame
     , current_frame = current_frame
     }
-  | is_time_to_update current_frame allowed_frame = gs
+  | is_time_to_update current_frame allowed_frame = return gs
     { field = get_new_field field
     , pause = False
     , allowed_frame = allowed_frame
     , current_frame = update_current_frame current_frame
     }
-    | otherwise = gs
+  | otherwise = return gs
     { field = field
     , pause = False
     , allowed_frame = allowed_frame
     , current_frame = update_current_frame current_frame
     }
 
-updater _ gs = gs
+updater _ gs = return gs
 
+handler :: Event -> GameState -> IO GameState
 handler (EventKey (MouseButton LeftButton) Down _ mouse) gs@GS
     { field = field
     , pause = True
-    } = gs
+    } = return gs
     { field = newField
     , pause = True
     } where
@@ -140,7 +146,7 @@ handler (EventKey (MouseButton LeftButton) Down _ mouse) gs@GS
 handler (EventKey (Char 'p') Down _ _) gs@GS
     { field = field
     , pause = pause
-    } = gs
+    } = return gs
     { field = field
     , pause = not pause
     }
@@ -149,7 +155,7 @@ handler (EventKey (Char ',') Down _ _) gs@GS
     { field = field
     , pause = pause
     , allowed_frame = allowed_frame
-    } = gs
+    } = return gs
     { field = field
     , pause = pause
     , allowed_frame = decrease_speed allowed_frame
@@ -159,18 +165,19 @@ handler (EventKey (Char '.') Down _ _) gs@GS
     { field = field
     , pause = pause
     , allowed_frame = allowed_frame
-    } = gs
+    } = return gs
     { field = field
     , pause = pause
     , allowed_frame = increase_speed allowed_frame
     }
 
-handler _ gs = gs
+handler _ gs = return gs
 
 screenToCell = both (round . (/ cellSize)) . invertViewPort viewPort
 cellToScreen = both ((* cellSize) . fromIntegral)
 
-renderer GS { field = field} = applyViewPortToPicture viewPort $ pictures $ cells ++ grid where
+renderer :: GameState -> IO Picture
+renderer GS { field = field} = return (applyViewPortToPicture viewPort $ pictures $ cells ++ grid) where
     grid = [uncurry translate (cellToScreen (x, y)) $ color black $ rectangleWire cellSize cellSize | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
     cells = [uncurry translate (cellToScreen (x, y)) $ draw_cell x y | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
     draw_cell x y
