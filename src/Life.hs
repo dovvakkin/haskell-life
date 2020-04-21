@@ -9,6 +9,7 @@ import           Graphics.Gloss
 import           Graphics.Gloss.Data.ViewPort
 import           Graphics.Gloss.Interface.IO.Game
 --import           Graphics.Gloss.Interface.Pure.Game
+import           System.Directory
 
 import           System.IO
 
@@ -171,7 +172,35 @@ handler (EventKey (Char '.') Down _ _) gs@GS
     , allowed_frame = increase_speed allowed_frame
     }
 
+handler (EventKey (Char 's') Down _ _) gs@GS
+    { field = field
+    , pause = True
+    } = do
+	outh <- openFile "saved_state.hls" WriteMode
+	mapM (\x -> do
+                      hPrint outh (fst x)
+		      hPrint outh (snd x)) (Data.Set.toList field)
+        hClose outh
+	return gs
+
+handler (EventKey (Char 'l') Down _ _) gs@GS
+    { field = field
+    , pause = True
+    } = do
+	saveExists <- doesFileExist "saved_state.hls"
+        if saveExists
+	    then do
+            content <- readFile "saved_state.hls"
+	    return gs { field = Data.Set.fromList (list_to_tup (Prelude.map (read::String->Int) (lines content)))
+  	    , pause = True}
+        else
+	    return gs
+
 handler _ gs = return gs
+
+list_to_tup :: [Int] -> [Cell]
+list_to_tup (a:b:xs) = (a,b) : list_to_tup xs
+list_to_tup _        = []
 
 screenToCell = both (round . (/ cellSize)) . invertViewPort viewPort
 cellToScreen = both ((* cellSize) . fromIntegral)
