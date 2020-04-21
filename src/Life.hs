@@ -12,6 +12,8 @@ field_size@(field_width, field_height) = (20, 20) :: (Int, Int)
 
 cellSize = 24 :: Float
 
+default_fps = 60 :: Int
+
 n_neighbours_to_born = Data.Set.fromList [3]
 n_neighbours_to_stay = Data.Set.fromList [2]
 
@@ -19,7 +21,7 @@ type Cell = (Int, Int)
 type Field = Set Cell
 
 start_game :: IO ()
-start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white 7 init_state renderer handler updater
+start_game = play (InWindow "Hsweeper" windowSize (240, 160)) white default_fps init_state renderer handler updater
 
 get_coordinate_on_torus :: Cell -> Cell
 get_coordinate_on_torus (cx, cy) = ((cx + field_width) `mod` field_width,
@@ -66,14 +68,16 @@ get_new_field :: Field -> Field
 get_new_field f = counter_to_field (field_to_counter f) f
 
 data GameState = GS
-    { field :: Field
-    , pause :: Bool
+    { field         :: Field
+    , pause         :: Bool
+    , allowed_frame :: Int
+    , current_frame :: Int
     }
 
 createField :: Field
 createField = Data.Set.empty
 
-init_state = GS createField True
+init_state = GS createField True 3 0
 
 -- | If life in Cell, return Field where no life in Cell,
 --   if no life in Cell, return Field where life in Cell
@@ -87,14 +91,40 @@ both f (a, b) = (f a, f b)
 
 windowSize = both (* (round cellSize)) field_size
 
+is_time_to_update :: Int -> Int -> Bool
+--is_time_to_update _ _ = True
+--is_time_to_update time allowed_frame = round ((get_fractional time) / (1 / default_fps)) == 1
+is_time_to_update frame_counter allowed_frame = (frame_counter `mod` allowed_frame) == 0
+
+update_current_frame :: Int -> Int
+update_current_frame frame = (frame + 1) `mod` default_fps
+
+increase_speed :: Int -> Int
+increase_speed allowed_frame | allowed_frame > 1 = allowed_frame - 1
+                          | otherwise = allowed_frame
+
+decrease_speed :: Int -> Int
+decrease_speed allowed_frame | allowed_frame < default_fps = allowed_frame + 1
+                          | otherwise = allowed_frame
+
 updater time gs@GS
     { field = field
     , pause = False
-    } = gs
-    { field = new_field
+    , allowed_frame = allowed_frame
+    , current_frame = current_frame
+    }
+  | is_time_to_update current_frame allowed_frame = gs
+    { field = get_new_field field
     , pause = False
-    } where
-    new_field = get_new_field field
+    , allowed_frame = allowed_frame
+    , current_frame = update_current_frame current_frame
+    }
+    | otherwise = gs
+    { field = field
+    , pause = False
+    , allowed_frame = allowed_frame
+    , current_frame = update_current_frame current_frame
+    }
 
 updater _ gs = gs
 
@@ -113,6 +143,26 @@ handler (EventKey (Char 'p') Down _ _) gs@GS
     } = gs
     { field = field
     , pause = not pause
+    }
+
+handler (EventKey (Char ',') Down _ _) gs@GS
+    { field = field
+    , pause = pause
+    , allowed_frame = allowed_frame
+    } = gs
+    { field = field
+    , pause = pause
+    , allowed_frame = decrease_speed allowed_frame
+    }
+
+handler (EventKey (Char '.') Down _ _) gs@GS
+    { field = field
+    , pause = pause
+    , allowed_frame = allowed_frame
+    } = gs
+    { field = field
+    , pause = pause
+    , allowed_frame = increase_speed allowed_frame
     }
 
 handler _ gs = gs
