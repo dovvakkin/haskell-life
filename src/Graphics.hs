@@ -41,6 +41,6 @@ load_pause_2_text = [ translate (fromIntegral ((fst field_size) * (round cellSiz
 
 add_guide_space :: (Int, Int) -> (Int, Int)
 add_guide_space (x, y) = (x + 12, y)
--- | For picture rendering
+
 viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen (add_guide_space field_size)) 0 1
 
