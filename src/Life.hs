@@ -10,7 +10,7 @@ import           Graphics.Gloss.Data.ViewPort
 import           Graphics.Gloss.Interface.IO.Game
 --import           Graphics.Gloss.Interface.Pure.Game
 import           System.Directory
-
+import           System.Exit
 import           System.IO
 
 field_size@(field_width, field_height) = (40, 25) :: (Int, Int)
@@ -219,6 +219,9 @@ handler (EventKey (Char 'l') Down _ _) gs@GS
         else
 	    return gs  -- this loads fiels from file if it exists
 
+handler (EventKey (Char 'q') Down _ _) gs = do
+    exitSuccess
+
 handler _ gs = return gs
 
 
@@ -245,5 +248,4 @@ add_guide_space :: (Int, Int) -> (Int, Int)
 add_guide_space (x, y) = (x + 12, y)
 -- | For picture rendering
 viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen (add_guide_space field_size)) 0 1
-
 
