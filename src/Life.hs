@@ -13,7 +13,7 @@ import           System.Directory
 
 import           System.IO
 
-field_size@(field_width, field_height) = (20, 20) :: (Int, Int)
+field_size@(field_width, field_height) = (40, 25) :: (Int, Int)
 
 cellSize = 24 :: Float
 
@@ -26,7 +26,7 @@ type Cell = (Int, Int)
 type Field = Set Cell
 
 start_game :: IO ()
-start_game = playIO (InWindow "Hsweeper" windowSize (240, 160)) white default_fps init_state renderer handler updater
+start_game = playIO FullScreen white default_fps init_state renderer handler updater
 
 -- | Return coordinate on field that has the shape of the torus
 get_coordinate_on_torus :: Cell -> Cell
@@ -116,7 +116,7 @@ is_time_to_update frame_counter allowed_frame = (frame_counter `mod` allowed_fra
 update_current_frame :: Int -> Int
 update_current_frame frame = (frame + 1) `mod` default_fps
 
--- | Increase speed with decreasing the allowed frame 
+-- | Increase speed with decreasing the allowed frame
 increase_speed :: Int -> Int
 increase_speed allowed_frame | allowed_frame > 1 = allowed_frame - 1
                           | otherwise = allowed_frame
@@ -240,7 +240,10 @@ renderer GS { field = field} = return (applyViewPortToPicture viewPort $ picture
         | (x, y) `Data.Set.member` field = color green $ rectangleSolid cellSize cellSize
 	| otherwise = color white $ rectangleSolid cellSize cellSize
 
+
+add_guide_space :: (Int, Int) -> (Int, Int)
+add_guide_space (x, y) = (x + 12, y)
 -- | For picture rendering
-viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen field_size) 0 1
+viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen (add_guide_space field_size)) 0 1
 
 
