@@ -13,4 +13,5 @@ n_neighbours_to_born = Data.Set.fromList [3 :: Int]
 n_neighbours_to_stay = Data.Set.fromList [2 :: Int]
 
 background_color = makeColorI 41 44 51 0
+text_color = makeColorI 172 178 190 0
 
