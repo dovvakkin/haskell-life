@@ -1,32 +1,20 @@
 module Life
     ( start_game
     ) where
-
-
 import           Data.Map
 import           Data.Set
 import           Graphics.Gloss
 import           Graphics.Gloss.Data.ViewPort
 import           Graphics.Gloss.Interface.IO.Game
---import           Graphics.Gloss.Interface.Pure.Game
-import           System.Directory
-import           System.Exit
-import           System.IO
 
-field_size@(field_width, field_height) = (40, 25) :: (Int, Int)
-
-cellSize = 24 :: Float
-
-default_fps = 60 :: Int
-
-n_neighbours_to_born = Data.Set.fromList [3]
-n_neighbours_to_stay = Data.Set.fromList [2]
-
-type Cell = (Int, Int)
-type Field = Set Cell
+import           Constants
+import           Controls
+import           Graphics
+import           Types
+import           Utils
 
 start_game :: IO ()
-start_game = playIO FullScreen white default_fps init_state renderer handler updater
+start_game = playIO FullScreen background_color default_fps init_state renderer handler updater
 
 -- | Return coordinate on field that has the shape of the torus
 get_coordinate_on_torus :: Cell -> Cell
@@ -73,18 +61,6 @@ counter_to_field l f = Data.Set.fromList
 get_new_field :: Field -> Field
 get_new_field f = counter_to_field (field_to_counter f) f
 
-
--- | field is Set of Cells, Cells are tuples (x, y)
---   pause is boolean derivative that represents the current game mode -- pause or simulation
---   allowed_frame and current_frame are responsible for game speed
---   allowed_frame shows every frame we accept, so if current_frame is divided by allowed_frame then we allow it
-data GameState = GS
-    { field         :: Field
-    , pause         :: Bool
-    , allowed_frame :: Int
-    , current_frame :: Int
-    }
-
 -- | Create empty Field
 createField :: Field
 createField = Data.Set.empty
@@ -92,40 +68,16 @@ createField = Data.Set.empty
 -- | Create GameState with game at pause, speed 20 fps
 init_state = GS createField True 3 0
 
--- | If life in Cell, return Field where no life in Cell,
---   if no life in Cell, return Field where life in Cell
-modify_life :: Cell -> Field -> Field
-modify_life c f
-	| c `Data.Set.member` f = Data.Set.delete c f
- 	| otherwise = Data.Set.insert c f
-
--- | Some sort of map() for tuple
-both :: (a -> b) -> (a, a) -> (b, b)
-both f (a, b) = (f a, f b)
-
 -- | Count size of window
 windowSize = both (* (round cellSize)) field_size
 
 -- | Is it the time the field shall be refreshed
 is_time_to_update :: Int -> Int -> Bool
---is_time_to_update _ _ = True
---is_time_to_update time allowed_frame = round ((get_fractional time) / (1 / default_fps)) == 1
 is_time_to_update frame_counter allowed_frame = (frame_counter `mod` allowed_frame) == 0
 
 -- | Get new current frame
 update_current_frame :: Int -> Int
 update_current_frame frame = (frame + 1) `mod` default_fps
-
--- | Increase speed with decreasing the allowed frame
-increase_speed :: Int -> Int
-increase_speed allowed_frame | allowed_frame > 1 = allowed_frame - 1
-                          | otherwise = allowed_frame
-
--- | Decrease speed with decreasing the allowed frame
-decrease_speed :: Int -> Int
-decrease_speed allowed_frame | allowed_frame < default_fps = allowed_frame + 1
-                          | otherwise = allowed_frame
-
 
 -- | Update the current field according the Life rules (only in simulation mode)
 --   Don't update if the current frame is not allowed (not diveded by allowed_frame)
@@ -151,101 +103,4 @@ updater time gs@GS
 
 updater _ gs = return gs
 -- | Thus updater changes the GameState on time
-
-
--- | handler changes the GameState on event
---   handler may change the game speed (increase/decrease) and mode (pause/simulation) at any time
---   in pause mode handler works with Cells on field according to mouse getsures
---   also handler can save the current fiels to file "saved_state.hls"
-handler :: Event -> GameState -> IO GameState
-handler (EventKey (MouseButton LeftButton) Down _ mouse) gs@GS
-    { field = field
-    , pause = True
-    } = return gs
-    { field = newField
-    , pause = True
-    } where
-    newField = modify_life (screenToCell mouse) field  -- this adds/removes life from cell in pause mode
-
-handler (EventKey (Char 'p') Down _ _) gs@GS
-    { field = field
-    , pause = pause
-    } = return gs
-    { field = field
-    , pause = not pause
-    }  -- this changes the game mode
-
-handler (EventKey (Char ',') Down _ _) gs@GS
-    { field = field
-    , pause = pause
-    , allowed_frame = allowed_frame
-    } = return gs
-    { field = field
-    , pause = pause
-    , allowed_frame = decrease_speed allowed_frame
-    }  -- this decreases the game speed
-
-handler (EventKey (Char '.') Down _ _) gs@GS
-    { field = field
-    , pause = pause
-    , allowed_frame = allowed_frame
-    } = return gs
-    { field = field
-    , pause = pause
-    , allowed_frame = increase_speed allowed_frame
-    }  -- this increases the game speed
-
-handler (EventKey (Char 's') Down _ _) gs@GS
-    { field = field
-    , pause = True
-    } = do
-	outh <- openFile "saved_state.hls" WriteMode
-	mapM (\x -> do
-                      hPrint outh (fst x)
-		      hPrint outh (snd x)) (Data.Set.toList field)
-        hClose outh
-	return gs  -- this saves field to file
-
-handler (EventKey (Char 'l') Down _ _) gs@GS
-    { field = field
-    , pause = True
-    } = do
-	saveExists <- doesFileExist "saved_state.hls"
-        if saveExists
-	    then do
-            content <- readFile "saved_state.hls"
-	    return gs { field = Data.Set.fromList (list_to_tup (Prelude.map (read::String->Int) (lines content)))
-  	    , pause = True}
-        else
-	    return gs  -- this loads fiels from file if it exists
-
-handler (EventKey (Char 'q') Down _ _) gs = do
-    exitSuccess
-
-handler _ gs = return gs
-
-
--- | Convert list of numbers to list of pairs (x, y)
-list_to_tup :: [Int] -> [Cell]
-list_to_tup (a:b:xs) = (a,b) : list_to_tup xs
-list_to_tup _        = []
-
--- | Get Cell from mouse coordinates
-screenToCell = both (round . (/ cellSize)) . invertViewPort viewPort
-cellToScreen = both ((* cellSize) . fromIntegral)
-
--- | Draw current GameState
-renderer :: GameState -> IO Picture
-renderer GS { field = field} = return (applyViewPortToPicture viewPort $ pictures $ cells ++ grid) where
-    grid = [uncurry translate (cellToScreen (x, y)) $ color black $ rectangleWire cellSize cellSize | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
-    cells = [uncurry translate (cellToScreen (x, y)) $ draw_cell x y | x <- [0 .. field_width - 1], y <- [0 .. field_height - 1]]
-    draw_cell x y
-        | (x, y) `Data.Set.member` field = color green $ rectangleSolid cellSize cellSize
-	| otherwise = color white $ rectangleSolid cellSize cellSize
-
-
-add_guide_space :: (Int, Int) -> (Int, Int)
-add_guide_space (x, y) = (x + 12, y)
--- | For picture rendering
-viewPort = ViewPort (both (negate . (/ 2) . (subtract cellSize)) $ cellToScreen (add_guide_space field_size)) 0 1
 

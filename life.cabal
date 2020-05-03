@@ -19,6 +19,11 @@ extra-source-files:
 library
   exposed-modules:
       Life
+      Constants
+      Types
+      Utils
+      Controls
+      Graphics
   other-modules:
       Paths_life
   hs-source-dirs:
